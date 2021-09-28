@@ -1,18 +1,4 @@
-### Project Title - Deploy a high-availability web app using CloudFormation
-This folder provides the starter code for the "ND9991 - C2- Infrastructure as Code - Deploy a high-availability web app using CloudFormation" project. This folder contains the following files:
-
-
-#### final-project-starter.yml
-Students have to write the CloudFormation code using this YAML template for building the cloud infrastructure, as required for the project. 
-
-#### server-parameters.json
-Students may use a JSON file for increasing the generic nature of the YAML code. For example, the JSON file contains a "ParameterKey" as "EnvironmentName" and "ParameterValue" as "UdacityProject". 
-
-In YAML code, the `${EnvironmentName}` would be substituted with `UdacityProject` accordingly.
-
-
-
-## scenario
+## SCENARIOS
 
 Your company is creating an Instagram clone called Udagram. Developers pushed the latest version of their code in a zip file located in a public S3 Bucket.
 
@@ -26,10 +12,9 @@ This needs to be done in an automated fashion so that the infrastructure can be 
 
 2. You'll need two vCPUs and at least 4GB of RAM. The Operating System to be used is Ubuntu 18. So, choose an Instance size and Machine Image (AMI) that best fits this spec.
 
-3. Be sure to allocate at least 10GB of disk space so that you don't run into issues. 
+3. Be sure to allocate at least 10GB of disk space so that you don't run into issues.
 
-
-## SECURITY GROUPS AND ROLES 
+## SECURITY GROUPS AND ROLES
 
 1. Since you will be downloading the application archive from an S3 Bucket, you'll need to create an IAM Role that allows your instances to use the S3 Service.
 
@@ -38,11 +23,9 @@ This needs to be done in an automated fashion so that the infrastructure can be 
 3. The load balancer should allow all public traffic (0.0.0.0/0) on port 80 inbound, which is the default HTTP port. Outbound, it will only be using port 80 to reach the internal servers.
 
 4. The application needs to be deployed into private subnets with a Load Balancer located in a public subnet.
-One of the output exports of the CloudFormation script should be the public URL of the LoadBalancer. Bonus points if you add http:// in front of the load balancer DNS Name in the output, for convenience.
+   One of the output exports of the CloudFormation script should be the public URL of the LoadBalancer. Bonus points if you add http:// in front of the load balancer DNS Name in the output, for convenience.
 
-
-## EXTRA CONSIDERATIONS 
-
+## EXTRA CONSIDERATIONS
 
 1. You can deploy your servers with an SSH Key into Public subnets while you are creating the script. This helps with troubleshooting. Once done, move them to your private subnets and remove the SSH Key from your Launch Configuration.
 
@@ -62,21 +45,10 @@ One of the output exports of the CloudFormation script should be the public URL 
 
 9. If you want to go the extra mile, set up a bastion host (jump box) to allow you to SSH into your private subnet servers. This bastion host would be on a Public Subnet with port 22 open only to your home IP address, and it would need to have the private key that you use to access the other servers.
 
-
 ## DIAGRAM
-
 
 <br>
 
 ![alt text](images/Udagram_Diagram.jpeg)
 
-
 <br>
-
-
-
-
-
-
-
-
