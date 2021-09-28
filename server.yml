@@ -289,6 +289,10 @@ Resources:
 
     # Uubuntu image locator: https://cloud-images.ubuntu.com/locator/
     # Please, provide the correct KeyName in the launch configuration
+
+    #  The UserData script for Ubuntu Linux that will Install Apache Web Server, Start it, and 
+    #  create an index.html that will be displayed when you visit the IP address of this server 
+    #  with your web browser
     WebAppLaunchConfig:
         Type: AWS::AutoScaling::LaunchConfiguration
         Properties:
@@ -300,6 +304,7 @@ Resources:
                     apt-get install apache2 -y
                     systemctl start apache2.service
                     cd /var/www/html
+                    echo "Udacity Demo Web Server Up and Running!" > index.html
                     aws s3 cp s3://cnf-602502938985-bucket/Udacity.zip .
                     unzip -o Udacity.zip
             ImageId: ami-0747bdcabd34c712a
@@ -371,21 +376,29 @@ Resources:
                   Values: [/]
             ListenerArn: !Ref "Listener"
             Priority: 1
-# Outputs:
-#   # This is also optional.
-#   # Bonus points for useful outputs!
-#   # for example, if you create a Load Balancer
-#   # it's nice to output the URL to it here, so that we don't have to go to the console to get it.
-# # Sample UserData
-# # When creating your Launch Configuration, you may need a UserData script
-# # here's one that you can use for Ubuntu Linux that will:
-# # Install Apache Web Server, Start it, and create an index.html that will be displayed
-# # when you visit the IP address of this server with your web browser
-# #Here it is:
-# #
-# #          #!/bin/bash
-# #          apt-get update -y
-# #          apt-get install apache2 -y
-# #          systemctl start apache2.service
-# #          cd /var/www/html
-# #          echo "Udacity Demo Web Server Up and Running!" > index.html
+
+Outputs:
+    VPC:
+        Description: A reference to the created VPC
+        Value: !Ref VPC
+        Export:
+            Name: !Sub ${EnvironmentName}-VPCID
+
+    PublicSubnets:
+        Description: A list of the public subnets
+        Value: !Join [",", [!Ref PublicSubnet1, !Ref PublicSubnet2]]
+        Export:
+            Name: !Sub ${EnvironmentName}-PUB-NETS
+
+    PrivateSubnets:
+        Description: A list of the private subnets
+        Value: !Join [",", [!Ref PrivateSubnet1, !Ref PrivateSubnet2]]
+        Export:
+            Name: !Sub ${EnvironmentName}-PRIV-NETS
+
+    WebAppLoadBalancerDNSName:
+        Description: DNS name or Public URL of the Load Balancer
+        Value: !Join ["", ["http://", !GetAtt WebAppLB.DNSName]]
+        Export:
+            Name: !Sub ${EnvironmentName}-LB-DNSName
+
