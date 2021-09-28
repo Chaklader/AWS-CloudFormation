@@ -90,7 +90,9 @@ To update the server infrastructure, please, run the command below:
 To destroty the infrastructure, please, run the command below:
 
 ```
-	sh/destroy.sh udagram-network && sh/destroy.sh udagram-server
+	sh/destroy.sh udagram-server
+	
+	sh/destroy.sh udagram-network 
 ```
 
 
