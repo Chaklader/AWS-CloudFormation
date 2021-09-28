@@ -52,3 +52,13 @@ This needs to be done in an automated fashion so that the infrastructure can be 
 ![alt text](images/Udagram_Diagram.jpeg)
 
 <br>
+
+
+
+## CREATE INFRASTRUCTURE
+
+To create the infrastructure, please, run the command below:
+
+```
+	./create.sh udagram server.yml server-parameters.json
+```
