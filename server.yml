@@ -236,8 +236,8 @@ Resources:
                           - s3:Get*
                           - s3:List*
                       Resource:
-                          - arn:aws:s3:::cnf-602502938985-bucket
-                          - arn:aws:s3:::cnf-602502938985-bucket/*
+                          - arn:aws:s3:::udacity-demo-1
+                          - arn:aws:s3:::udacity-demo-1/*
             Roles:
                 - Ref: UdacityS3ReadOnlyEC2
 
@@ -277,7 +277,7 @@ Resources:
                 - IpProtocol: tcp
                   FromPort: 22
                   ToPort: 22
-                  CidrIp: 0.0.0.0/0
+                  CidrIp: 103.150.26.254/32 # My IP address
             SecurityGroupEgress:
                 - IpProtocol: tcp
                   FromPort: 0
@@ -290,8 +290,8 @@ Resources:
     # Uubuntu image locator: https://cloud-images.ubuntu.com/locator/
     # Please, provide the correct KeyName in the launch configuration
 
-    #  The UserData script for Ubuntu Linux that will Install Apache Web Server, Start it, and 
-    #  create an index.html that will be displayed when you visit the IP address of this server 
+    #  The UserData script for Ubuntu Linux that will Install Apache Web Server, Start it, and
+    #  create an index.html that will be displayed when you visit the IP address of this server
     #  with your web browser
     WebAppLaunchConfig:
         Type: AWS::AutoScaling::LaunchConfiguration
@@ -305,9 +305,9 @@ Resources:
                     systemctl start apache2.service
                     cd /var/www/html
                     echo "Udacity Demo Web Server Up and Running!" > index.html
-                    aws s3 cp s3://cnf-602502938985-bucket/Udacity.zip .
-                    unzip -o Udacity.zip
-            ImageId: ami-0747bdcabd34c712a
+                    aws s3 cp s3://udacity-demo-1/udacity.zip .
+                    unzip -o udacity.zip
+            ImageId: ami-0a4f4704a9146742a
             KeyName: CLI
             IamInstanceProfile: !Ref ProfileWithRolesForOurApp
             SecurityGroups:
@@ -401,4 +401,9 @@ Outputs:
         Value: !Join ["", ["http://", !GetAtt WebAppLB.DNSName]]
         Export:
             Name: !Sub ${EnvironmentName}-LB-DNSName
+## Extra
 
+# If you want to go the extra mile, set up a bastion host (jump box) to allow you to SSH into
+# your private subnet servers. This bastion host would be on a Public Subnet with port 22 open
+# only to your home IP address, and it would need to have the private key that you use to access
+# the other servers.
