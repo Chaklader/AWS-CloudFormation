@@ -62,3 +62,21 @@ To create the infrastructure, please, run the command below:
 ```
 	./create.sh udagram server.yml server-parameters.json
 ```
+
+
+## UPDATE INFRASTRUCTURE
+
+To create the infrastructure, please, run the command below:
+
+```
+	./update.sh udagram server.yml server-parameters.json
+```
+
+
+## DELETE INFRASTRUCTURE
+
+To create the infrastructure, please, run the command below:
+
+```
+	./delete.sh udagram
+```
