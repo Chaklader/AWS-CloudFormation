@@ -1,6 +1,17 @@
 Description: >
     Chaklader A. Arefe / Udagram Project
 
+# Control the UI display when running this template from the AWS Management Console - this has no affect in the CLI
+Metadata:
+    AWS::CloudFormation::Interface:
+        ParameterGroups:
+            - Label:
+                  default: "Network Configuration"
+              Parameters:
+                  - NumberOfAZs
+                  - PrivateSubnets
+                  - NATType
+
 Parameters:
     EnvironmentName:
         Description: An environment name that will be prefixed to resources
@@ -47,6 +58,14 @@ Parameters:
                 t3.2xlarge,
             ]
         Default: t3.medium
+    NumberOfAZs:
+        Description: "The number of the availability zone for the respective region"
+        Type: Number 
+        Default: 6
+
+Conditions:
+    BuildPublicSubnet2: !Not [!Equals [!Ref NumberOfAZs, 1]]
+    BuildPrivateSubnet2: !Not [!Equals [!Ref NumberOfAZs, 1]]
 
 Resources:
     VPC:
@@ -57,28 +76,6 @@ Resources:
             Tags:
                 - Key: Name
                   Value: !Ref EnvironmentName
-
-    PrivateSubnet1:
-        Type: AWS::EC2::Subnet
-        Properties:
-            VpcId: !Ref VPC
-            AvailabilityZone: !Select [0, !GetAZs ""]
-            CidrBlock: !Ref PrivateSubnet1CIDR
-            MapPublicIpOnLaunch: false
-            Tags:
-                - Key: Name
-                  Value: !Sub ${EnvironmentName}_Private_Subnet_AZ1
-
-    PrivateSubnet2:
-        Type: AWS::EC2::Subnet
-        Properties:
-            VpcId: !Ref VPC
-            AvailabilityZone: !Select [1, !GetAZs ""]
-            CidrBlock: !Ref PrivateSubnet2CIDR
-            MapPublicIpOnLaunch: false
-            Tags:
-                - Key: Name
-                  Value: !Sub ${EnvironmentName}_Private_Subnet_AZ2
 
     PublicSubnet1:
         Type: AWS::EC2::Subnet
@@ -93,6 +90,7 @@ Resources:
 
     PublicSubnet2:
         Type: AWS::EC2::Subnet
+        Condition: BuildPublicSubnet2
         Properties:
             VpcId: !Ref VPC
             AvailabilityZone: !Select [1, !GetAZs ""]
@@ -101,6 +99,29 @@ Resources:
             Tags:
                 - Key: Name
                   Value: !Sub ${EnvironmentName}_Public_Subnet_AZ2
+
+    PrivateSubnet1:
+        Type: AWS::EC2::Subnet
+        Properties:
+            VpcId: !Ref VPC
+            AvailabilityZone: !Select [0, !GetAZs ""]
+            CidrBlock: !Ref PrivateSubnet1CIDR
+            MapPublicIpOnLaunch: false
+            Tags:
+                - Key: Name
+                  Value: !Sub ${EnvironmentName}_Private_Subnet_AZ1
+
+    PrivateSubnet2:
+        Type: AWS::EC2::Subnet
+        Condition: BuildPrivateSubnet2
+        Properties:
+            VpcId: !Ref VPC
+            AvailabilityZone: !Select [1, !GetAZs ""]
+            CidrBlock: !Ref PrivateSubnet2CIDR
+            MapPublicIpOnLaunch: false
+            Tags:
+                - Key: Name
+                  Value: !Sub ${EnvironmentName}_Private_Subnet_AZ2
 
     InternetGateway:
         Type: AWS::EC2::InternetGateway
@@ -163,6 +184,7 @@ Resources:
 
     PublicSubnet2RouteTableAssociation:
         Type: AWS::EC2::SubnetRouteTableAssociation
+        Condition: BuildPublicSubnet2
         Properties:
             RouteTableId: !Ref PublicRouteTable
             SubnetId: !Ref PublicSubnet2
@@ -205,6 +227,7 @@ Resources:
 
     PrivateSubnet2RouteTableAssociation:
         Type: AWS::EC2::SubnetRouteTableAssociation
+        Condition: BuildPrivateSubnet2
         Properties:
             RouteTableId: !Ref PrivateRouteTable2
             SubnetId: !Ref PrivateSubnet2
@@ -308,7 +331,7 @@ Resources:
                     aws s3 cp s3://udacity-demo-1/udacity.zip .
                     unzip -o udacity.zip
             ImageId: ami-0a4f4704a9146742a
-            KeyName: CLI
+            # KeyName: CLI
             IamInstanceProfile: !Ref ProfileWithRolesForOurApp
             SecurityGroups:
                 - Ref: WebServerSecGroup

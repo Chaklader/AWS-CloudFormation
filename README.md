@@ -49,7 +49,7 @@ This needs to be done in an automated fashion so that the infrastructure can be 
 
 <br>
 
-![alt text](images/Udagram_Diagram.jpeg)
+![alt text](images/Udagram_Diagram.png)
 
 <br>
 
