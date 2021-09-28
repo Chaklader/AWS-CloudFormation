@@ -1,0 +1,532 @@
+Description: >
+    Chaklader A. Arefe / Udagram Project
+    This template deploys a VPC, with a pair of public and private subnets spread 
+    across two Availabilty Zones. It deploys an Internet Gateway, with a default 
+    route on the public subnets. It deploys a pair of NAT Gateways (one in each AZ), 
+    and default routes for them in the private subnets.
+
+# Control the UI display when running this template from the AWS Management Console - this has no affect in the CLI
+Metadata:
+    AWS::CloudFormation::Interface:
+        ParameterGroups:
+            - Label:
+                  default: "Network Configuration"
+              Parameters:
+                  - NumberOfAZs
+                  - PrivateSubnets
+                  - NATType
+
+# Need to correct AMI for all regions except the us-east-1
+Mappings:
+    #  This is the Amazon Linux 2 AMI.  Adjust these values as needed, they can change a few times per year:
+    AmazonLinuxAMI:
+        us-east-1:
+            AMI: ami-0a4f4704a9146742a # N Virginia
+        us-east-2:
+            AMI: ami-0cf31d971a3ca20d6 # Ohio
+        us-west-1:
+            AMI: ami-0782017a917e973e7 # N California
+        us-west-2:
+            AMI: ami-6cd6f714 # Oregon
+        eu-west-1:
+            AMI: ami-0bdb1d6c15a40392c # Ireland
+        eu-central-1:
+            AMI: ami-0f5dbc86dd9cbf7a8 # Frankfurt
+        sa-east-1:
+            AMI: ami-0ad7b0031d41ed4b9 # Sao Paulo
+        ap-southeast-1:
+            AMI: ami-01da99628f381e50a # Singaport
+        ap-southeast-2:
+            AMI: ami-00e17d1165b9dd3ec # Sydney
+        ap-northeast-1:
+            AMI: ami-08847abae18baa040 # Tokyo
+
+Parameters:
+    PrivateSubnets:
+        Type: String
+        AllowedValues:
+            - True
+            - False
+        Default: True
+        Description: Do you want to create private subnets in addition to public subnets?
+
+    NumberOfAZs:
+        Type: Number
+        AllowedValues:
+            - 1
+            - 2
+            - 3
+        Default: 2
+        Description: How many Availability Zones do you wish to utilize?
+
+    NATType:
+        Type: String
+        AllowedValues:
+            - "EC2 NAT Instance"
+            - "NAT Gateway"
+        Default: "NAT Gateway"
+        Description: What type of NAT to use for private instances to communicate with the internet.  A single EC2 instance can be used as a NAT, or you can use the AWS NAT Gateway (managed, scalable, more expensive).  This setting will be IGNORED if you do not build private subnets.
+
+    EnvironmentName:
+        Description: An environment name that will be prefixed to resources
+        Type: String
+
+    VpcCIDR:
+        Description: Please enter the IP range (CIDR notation) for this
+        Type: String
+        Default: 10.0.0.0/16
+
+    PublicSubnet1CIDR:
+        Description: Please enter the IP range (CIDR notation) for the Subnet
+        Type: String
+        Default: 10.0.0.0/24
+
+    PublicSubnet2CIDR:
+        Description: Please enter the IP range (CIDR notation) for the Subnet
+        Type: String
+        Default: 10.0.1.0/24
+
+    PrivateSubnet1CIDR:
+        Description: Please enter the IP range (CIDR notation) for the Subnet
+        Type: String
+        Default: 10.0.2.0/24
+
+    PrivateSubnet2CIDR:
+        Description: Please enter the IP range (CIDR notation) for the Subnet
+        Type: String
+        Default: 10.0.3.0/24
+
+    InstanceType:
+        Description: "The EC2 instance type of general purpose"
+        Type: String
+        AllowedValues:
+            [
+                t2.medium,
+                t3.small,
+                t3.nano,
+                t3.micro,
+                t3.small,
+                t3.medium,
+                t3.large,
+                t3.xlarge,
+                t3.2xlarge,
+            ]
+        Default: t3.medium
+
+    myKeyPair:
+        Description: Amazon EC2 Key Pair
+        Type: "AWS::EC2::KeyPair::KeyName"
+        Default: CLI
+
+Conditions:
+    BuildPrivateSubnets: !Equals [!Ref PrivateSubnets, True]
+    BuildPublicSubnet2: !Not [!Equals [!Ref NumberOfAZs, 1]]
+    BuildPrivateSubnet2: !Not [!Equals [!Ref NumberOfAZs, 1]]
+    BuildNATGateway:
+        !And [
+            Condition: BuildPrivateSubnets,
+            !Equals [!Ref NATType, "NAT Gateway"],
+        ]
+    BuildNATInstance:
+        !And [
+            Condition: BuildPrivateSubnets,
+            !Equals [!Ref NATType, "EC2 NAT Instance"],
+        ]
+
+Resources:
+    VPC:
+        Type: AWS::EC2::VPC
+        Properties:
+            CidrBlock: !Ref VpcCIDR
+            EnableDnsHostnames: true
+            Tags:
+                - Key: Name
+                  Value: !Ref EnvironmentName
+
+    InternetGateway:
+        Type: AWS::EC2::InternetGateway
+
+    InternetGatewayAttachment:
+        Type: AWS::EC2::VPCGatewayAttachment
+        Properties:
+            VpcId: !Ref VPC
+            InternetGatewayId: !Ref InternetGateway
+
+    PublicSubnet1:
+        Type: AWS::EC2::Subnet
+        Properties:
+            VpcId: !Ref VPC
+            AvailabilityZone: !Select [0, !GetAZs ""]
+            CidrBlock: !Ref PublicSubnet1CIDR
+            MapPublicIpOnLaunch: false
+            Tags:
+                - Key: Name
+                  Value: !Sub ${EnvironmentName}-Public-Subnet(AZ1)
+
+    PublicSubnet2:
+        Type: AWS::EC2::Subnet
+        Condition: BuildPublicSubnet2
+        Properties:
+            VpcId: !Ref VPC
+            AvailabilityZone: !Select [1, !GetAZs ""]
+            CidrBlock: !Ref PublicSubnet2CIDR
+            MapPublicIpOnLaunch: false
+            Tags:
+                - Key: Name
+                  Value: !Sub ${EnvironmentName}-Public-Subnet(AZ2)
+
+    PrivateSubnet1:
+        Type: AWS::EC2::Subnet
+        Properties:
+            VpcId: !Ref VPC
+            AvailabilityZone: !Select [0, !GetAZs ""]
+            CidrBlock: !Ref PrivateSubnet1CIDR
+            MapPublicIpOnLaunch: false
+            Tags:
+                - Key: Name
+                  Value: !Sub ${EnvironmentName}-Private-Subnet(AZ1)
+
+    PrivateSubnet2:
+        Type: AWS::EC2::Subnet
+        Condition: BuildPrivateSubnet2
+        Properties:
+            VpcId: !Ref VPC
+            AvailabilityZone: !Select [1, !GetAZs ""]
+            CidrBlock: !Ref PrivateSubnet2CIDR
+            MapPublicIpOnLaunch: false
+            Tags:
+                - Key: Name
+                  Value: !Sub ${EnvironmentName}-Private-Subnet(AZ2)
+
+    NatGateway1EIP:
+        Type: AWS::EC2::EIP
+        DependsOn: InternetGatewayAttachment
+        Properties:
+            Domain: vpc
+
+    NatGateway2EIP:
+        Type: AWS::EC2::EIP
+        DependsOn: InternetGatewayAttachment
+        Properties:
+            Domain: vpc
+
+    NatGateway1:
+        Type: AWS::EC2::NatGateway
+        Properties:
+            AllocationId: !GetAtt NatGateway1EIP.AllocationId
+            SubnetId: !Ref PublicSubnet1
+
+    NatGateway2:
+        Type: AWS::EC2::NatGateway
+        Properties:
+            AllocationId: !GetAtt NatGateway2EIP.AllocationId
+            SubnetId: !Ref PublicSubnet2
+
+    # Specifies a route table for a specified VPC. After you create a route
+    # table, you can add routes and associate the table with a subnet.
+    PublicRouteTable:
+        Type: AWS::EC2::RouteTable
+        Properties:
+            VpcId: !Ref VPC
+            Tags:
+                - Key: Name
+                  Value: !Sub ${EnvironmentName}_Public_Routes
+
+    # Specifies a route in a route table within a VPC.
+    DefaultPublicRoute:
+        Type: AWS::EC2::Route
+        DependsOn: InternetGatewayAttachment
+        Properties:
+            RouteTableId: !Ref PublicRouteTable
+            DestinationCidrBlock: 0.0.0.0/0
+            GatewayId: !Ref InternetGateway
+
+    # Associates a subnet with a route table. The subnet and route table must be in the same VPC
+    PublicSubnet1RouteTableAssociation:
+        Type: AWS::EC2::SubnetRouteTableAssociation
+        Properties:
+            RouteTableId: !Ref PublicRouteTable
+            SubnetId: !Ref PublicSubnet1
+
+    PublicSubnet2RouteTableAssociation:
+        Type: AWS::EC2::SubnetRouteTableAssociation
+        Condition: BuildPublicSubnet2
+        Properties:
+            RouteTableId: !Ref PublicRouteTable
+            SubnetId: !Ref PublicSubnet2
+
+    PrivateRouteTable1:
+        Type: AWS::EC2::RouteTable
+        Properties:
+            VpcId: !Ref VPC
+            Tags:
+                - Key: Name
+                  Value: !Sub ${EnvironmentName}_Private Routes_AZ1
+
+    DefaultPrivateRoute1:
+        Type: AWS::EC2::Route
+        Properties:
+            RouteTableId: !Ref PrivateRouteTable1
+            DestinationCidrBlock: 0.0.0.0/0
+            NatGatewayId: !Ref NatGateway1
+
+    PrivateSubnet1RouteTableAssociation:
+        Type: AWS::EC2::SubnetRouteTableAssociation
+        Properties:
+            RouteTableId: !Ref PrivateRouteTable1
+            SubnetId: !Ref PrivateSubnet1
+
+    PrivateRouteTable2:
+        Type: AWS::EC2::RouteTable
+        Properties:
+            VpcId: !Ref VPC
+            Tags:
+                - Key: Name
+                  Value: !Sub ${EnvironmentName}-Private-Routes(AZ2)
+
+    DefaultPrivateRoute2:
+        Type: AWS::EC2::Route
+        Properties:
+            RouteTableId: !Ref PrivateRouteTable2
+            DestinationCidrBlock: 0.0.0.0/0
+            NatGatewayId: !Ref NatGateway2
+
+    PrivateSubnet2RouteTableAssociation:
+        Type: AWS::EC2::SubnetRouteTableAssociation
+        Condition: BuildPrivateSubnet2
+        Properties:
+            RouteTableId: !Ref PrivateRouteTable2
+            SubnetId: !Ref PrivateSubnet2
+
+    # UdacityS3ReadOnlyEC2:
+    #     Type: AWS::IAM::Role
+    #     Properties:
+    #         RoleName: !Sub ${EnvironmentName}-Role
+    #         AssumeRolePolicyDocument:
+    #             Version: "2012-10-17"
+    #             Statement:
+    #                 - Effect: Allow
+    #                   Principal:
+    #                       Service:
+    #                           - ec2.amazonaws.com
+    #                   Action:
+    #                       - sts:AssumeRole
+    #         Path: "/"
+
+    # RolePolicies:
+    #     Type: AWS::IAM::Policy
+    #     Properties:
+    #         PolicyName: AmazonS3ReadOnlyAccess
+    #         PolicyDocument:
+    #             Version: "2012-10-17"
+    #             Statement:
+    #                 - Effect: Allow
+    #                   Action:
+    #                       - s3:Get*
+    #                       - s3:List*
+    #                   Resource:
+    #                       - arn:aws:s3:::udacity-demo-1
+    #                       - arn:aws:s3:::udacity-demo-1/*
+    #         Roles:
+    #             - Ref: UdacityS3ReadOnlyEC2
+
+    # ProfileWithRolesForOurApp:
+    #     Type: AWS::IAM::InstanceProfile
+    #     Properties:
+    #         Path: "/"
+    #         Roles:
+    #             - Ref: UdacityS3ReadOnlyEC2
+
+    # LoadBalancerSecGroup:
+    #     Type: AWS::EC2::SecurityGroup
+    #     Properties:
+    #         GroupDescription: Allow http traffic to and from load balancer
+    #         VpcId: !Ref VPC
+    #         SecurityGroupIngress:
+    #             - IpProtocol: tcp
+    #               FromPort: 80
+    #               ToPort: 80
+    #               CidrIp: 0.0.0.0/0
+    #         SecurityGroupEgress:
+    #             - IpProtocol: tcp
+    #               FromPort: 80
+    #               ToPort: 80
+    #               CidrIp: 0.0.0.0/0
+
+    # WebServerSecGroup:
+    #     Type: AWS::EC2::SecurityGroup
+    #     Properties:
+    #         GroupDescription: Allow http and ssh to the web server
+    #         VpcId: !Ref VPC
+    #         SecurityGroupIngress:
+    #             - IpProtocol: tcp
+    #               FromPort: 80
+    #               ToPort: 80
+    #               CidrIp: 0.0.0.0/0
+    #             - IpProtocol: tcp
+    #               FromPort: 22
+    #               ToPort: 22
+    #               CidrIp: 103.150.26.254/32 # My IP address
+    #         SecurityGroupEgress:
+    #             - IpProtocol: tcp
+    #               FromPort: 0
+    #               ToPort: 65535
+    #               CidrIp: 0.0.0.0/0
+
+    # Need two vCPUs and at least 4GB of RAM. The Operating System to be used is Ubuntu 18. So, choose an Instance size and Machine
+    # Image (AMI) that best fits this spec. Be sure to allocate at least 10GB of disk space so that you don't run into issues.
+
+    # Uubuntu image locator: https://cloud-images.ubuntu.com/locator/
+    # Please, provide the correct KeyName in the launch configuration
+
+    #  The UserData script for Ubuntu Linux that will Install Apache Web Server, Start it, and
+    #  create an index.html that will be displayed when you visit the IP address of this server
+    #  with your web browser
+    # WebAppLaunchConfig:
+    #     Type: AWS::AutoScaling::LaunchConfiguration
+    #     Properties:
+    #         UserData:
+    #             Fn::Base64: !Sub |
+    #                 #!/bin/bash
+    #                 apt-get update -y
+    #                 apt-get install unzip awscli -y
+    #                 apt-get install apache2 -y
+    #                 systemctl start apache2.service
+    #                 cd /var/www/html
+    #                 echo "Udacity Demo Web Server Up and Running!" > index.html
+    #                 aws s3 cp s3://udacity-demo-1/udacity.zip .
+    #                 unzip -o udacity.zip
+    #         # ImageId: ami-0a4f4704a9146742a
+    #         ImageId: !FindInMap [AmazonLinuxAMI, !Ref "AWS::Region", AMI] # We lookup the AMI from the Region Map
+    #         # KeyName: CLI
+    #         IamInstanceProfile: !Ref ProfileWithRolesForOurApp
+    #         SecurityGroups:
+    #             - Ref: WebServerSecGroup
+    #         InstanceType: !Ref "InstanceType"
+    #         BlockDeviceMappings:
+    #             - DeviceName: "/dev/sdk"
+    #               Ebs:
+    #                   VolumeSize: "10" #10GB
+
+    # WebAppTargetGroup:
+    #     Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    #     Properties:
+    #         HealthCheckIntervalSeconds: 10
+    #         HealthCheckPath: /
+    #         HealthCheckProtocol: HTTP
+    #         HealthCheckTimeoutSeconds: 8
+    #         HealthyThresholdCount: 2
+    #         Port: 80
+    #         Protocol: HTTP
+    #         UnhealthyThresholdCount: 5
+    #         VpcId: !Ref VPC
+
+    # # Need 4 servers, 2 located in each of your private subnets. The launch configuration will be used by an auto-scaling group.
+    # WebAppGroup:
+    #     Type: AWS::AutoScaling::AutoScalingGroup
+    #     Properties:
+    #         VPCZoneIdentifier:
+    #             - !Ref PrivateSubnet1
+    #             - !Ref PrivateSubnet2
+    #         LaunchConfigurationName:
+    #             Ref: WebAppLaunchConfig
+    #         MinSize: "4"
+    #         MaxSize: "6"
+    #         TargetGroupARNs:
+    #             - Ref: WebAppTargetGroup
+
+    # WebAppLB:
+    #     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    #     Properties:
+    #         SecurityGroups:
+    #             - Ref: LoadBalancerSecGroup
+    #         Subnets:
+    #             - !Ref PublicSubnet1
+    #             - !Ref PublicSubnet2
+    # Listener:
+    #     Type: AWS::ElasticLoadBalancingV2::Listener
+    #     Properties:
+    #         DefaultActions:
+    #             - Type: forward
+    #               TargetGroupArn:
+    #                   Ref: WebAppTargetGroup
+    #         LoadBalancerArn:
+    #             Ref: WebAppLB
+    #         Port: 80
+    #         Protocol: HTTP
+
+    # ALBListenerRule:
+    #     Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    #     Properties:
+    #         Actions:
+    #             - Type: forward
+    #               TargetGroupArn: !Ref "WebAppTargetGroup"
+    #         Conditions:
+    #             - Field: path-pattern
+    #               Values: [/]
+    #         ListenerArn: !Ref "Listener"
+    #         Priority: 1
+
+Outputs:
+
+    VPC:
+        Description: A reference to the created VPC
+        Value: !Ref VPC
+        Export:
+            Name: !Sub ${EnvironmentName}-VPCID
+
+    PublicSubnets:
+        Description: A list of the public subnets
+        Value: !Join [",", [!Ref PublicSubnet1, !Ref PublicSubnet2]]
+        Export:
+            Name: !Sub ${EnvironmentName}-PUB-NETS
+
+    PrivateSubnets:
+        Description: A list of the private subnets
+        Value: !Join [",", [!Ref PrivateSubnet1, !Ref PrivateSubnet2]]
+        Export:
+            Name: !Sub ${EnvironmentName}-PRIV-NETS
+
+    PublicSubnet1:
+        Description: A reference to the public subnet in the 1st Availability Zone
+        Value: !Ref PublicSubnet1
+        Export:
+            Name: !Sub ${EnvironmentName}-PUB1-SN
+
+    PublicSubnet2:
+        Description: A reference to the public subnet in the 2nd Availability Zone
+        Value: !Ref PublicSubnet2
+        Export:
+            Name: !Sub ${EnvironmentName}-PUB2-SN
+
+    PrivateSubnet1:
+        Description: A reference to the private subnet in the 1st Availability Zone
+        Value: !Ref PrivateSubnet1
+        Export:
+            Name: !Sub ${EnvironmentName}-PRI1-SN
+
+    PrivateSubnet2:
+        Description: A reference to the private subnet in the 2nd Availability Zone
+        Value: !Ref PrivateSubnet2
+        Export:
+            Name: !Sub ${EnvironmentName}-PRI2-SN
+
+    VPCPublicRouteTable:
+        Description: Public Routing
+        Value: !Ref PublicRouteTable
+        Export:
+            Name: !Sub ${EnvironmentName}-PUB-RT
+
+    VPCPrivateRouteTable1:
+        Description: Private Routing AZ1
+        Value: !Ref PrivateRouteTable1
+        Export:
+            Name: !Sub ${EnvironmentName}-PRI1-RT
+
+    VPCPrivateRouteTable2:
+        Description: Private Routing AZ2
+        Value: !Ref PrivateRouteTable2
+        Export:
+            Name: !Sub ${EnvironmentName}-PRI2-RT
+
+
