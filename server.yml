@@ -167,6 +167,31 @@ Resources:
                   Ebs:
                       VolumeSize: "10" #10GB
 
+    # myWebAppLaunchTemplate:
+    #     Type: AWS::EC2::LaunchTemplate
+    #     Properties: 
+    #         LaunchTemplateData:
+    #             UserData:
+    #                 Fn::Base64: !Sub |
+    #                     #!/bin/bash
+    #                     apt-get update -y
+    #                     apt-get install unzip awscli -y
+    #                     apt-get install apache2 -y
+    #                     systemctl start apache2.service
+    #                     cd /var/www/html
+    #                     echo "Udacity Demo Web Server Up and Running!" > index.html
+    #                     aws s3 cp s3://udacity-demo-1/udacity.zip .
+    #                     unzip -o udacity.zip
+    #             ImageId: !FindInMap [AmazonLinuxAMI, !Ref "AWS::Region", AMI] # We lookup the AMI from the Region Map
+    #             KeyName: VocareumKey2
+    #             SecurityGroupIds:
+    #                 - sg-020ac9d8f54335c66
+    #             InstanceType: !Ref "InstanceType"
+    #             BlockDeviceMappings:
+    #                 - DeviceName: "/dev/sdk"
+    #                 Ebs:
+    #                     VolumeSize: "10" #10GB
+
     WebAppTargetGroup:
         Type: AWS::ElasticLoadBalancingV2::TargetGroup
         Properties:
